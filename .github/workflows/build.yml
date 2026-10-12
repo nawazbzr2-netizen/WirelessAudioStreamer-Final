@@ -10,18 +10,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack complete source
+      - name: Restore compressed source files
         run: |
-          if ls scripts/was_*.b64 1>/dev/null 2>&1; then
-            cat scripts/was_*.b64 | base64 -d > /tmp/src.zip
-            unzip -o /tmp/src.zip -d /tmp/src
-            cp -a /tmp/src/. .
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/java/com/wireless/audiostreamer/ui
+          mkdir -p app/src/main/java/com/wireless/audiostreamer/service
+          if [ -f scripts/z_activity_main.b64 ]; then
+            base64 -d scripts/z_activity_main.b64 | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > app/src/main/res/layout/activity_main.xml
           fi
-          echo "=== Source files ==="
-          find app/src -type f 2>/dev/null | sort || true
-          test -f app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
-          test -f app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
-          echo Critical files OK
+          if [ -f scripts/z_activity_settings.b64 ]; then
+            base64 -d scripts/z_activity_settings.b64 | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > app/src/main/res/layout/activity_settings.xml
+          fi
+          if [ -f scripts/z_MainActivity.b64 ]; then
+            base64 -d scripts/z_MainActivity.b64 | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
+          fi
+          if [ -f scripts/z_StreamingService.b64 ]; then
+            base64 -d scripts/z_StreamingService.b64 | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          fi
+          # Also try full zip restore if available
+          if ls scripts/was_*.b64 1>/dev/null 2>&1; then
+            cat scripts/was_*.b64 | base64 -d > /tmp/src.zip 2>/dev/null || true
+            if [ -f /tmp/src.zip ]; then
+              unzip -o /tmp/src.zip -d /tmp/src 2>/dev/null || true
+              cp -a /tmp/src/. . 2>/dev/null || true
+            fi
+          fi
+          echo "=== Source ==="
+          find app/src -type f | sort
+          ls -la app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt 2>/dev/null || echo MISSING MainActivity
+          ls -la app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt 2>/dev/null || echo MISSING StreamingService
 
       - uses: actions/setup-java@v4
         with:
