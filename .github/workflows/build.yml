@@ -23,14 +23,19 @@ jobs:
               echo "OK $out ($(wc -c < "$out") bytes)"
             else
               echo "MISSING halves for $out"
+              return 1
             fi
           }
 
           restore_single() {
             local b64="$1" out="$2"
             if [ -f "$b64" ]; then
-              base64 -d "$b64" | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > "$out"
-              echo "OK $out ($(wc -c < "$out") bytes)"
+              if base64 -d "$b64" | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > "$out" 2>/dev/null; then
+                echo "OK $out ($(wc -c < "$out") bytes)"
+              else
+                echo "FAIL decompress $b64"
+                rm -f "$out"
+              fi
             fi
           }
 
@@ -43,6 +48,8 @@ jobs:
           find app/src -type f | sort
           test -f app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
           test -f app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          test -f app/src/main/res/layout/activity_main.xml
+          test -f app/src/main/res/layout/activity_settings.xml
           echo Critical OK
 
       - uses: actions/setup-java@v4
