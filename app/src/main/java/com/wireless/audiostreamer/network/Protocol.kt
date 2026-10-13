@@ -6,11 +6,8 @@ import java.nio.ByteOrder
 object Protocol {
     const val PORT_DISCOVERY = 48765
     const val PORT_AUDIO = 48766
-    const val MAGIC = 0x57415331
-    const val T_DISCOVER = 1
     const val T_ANNOUNCE = 2
     const val T_AUDIO = 10
-    const val HEADER_SIZE = 16
 
     data class AudioFrame(val pcm: ShortArray, val channels: Int)
 

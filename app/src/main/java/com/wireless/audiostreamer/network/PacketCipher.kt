@@ -12,7 +12,7 @@ class PacketCipher(pin: String) {
     private val key: SecretKeySpec
     private val rnd = SecureRandom()
 
-    data class Opened(val type: Int, val session: Int, val seq: Int, val plain: ByteArray)
+    data class Opened(val type: Int, val session: Long, val seq: Int, val plain: ByteArray)
 
     init {
         val dig = MessageDigest.getInstance("SHA-256")
@@ -20,40 +20,38 @@ class PacketCipher(pin: String) {
         key = SecretKeySpec(hash, "AES")
     }
 
-    fun seal(type: Int, session: Int, seq: Int, plain: ByteArray): ByteArray {
+    fun seal(type: Int, session: Long, seq: Int, plain: ByteArray): ByteArray {
         val iv = ByteArray(12)
         rnd.nextBytes(iv)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, iv))
         val enc = cipher.doFinal(plain)
-        val out = ByteBuffer.allocate(Protocol.HEADER + 12 + enc.size).order(ByteOrder.LITTLE_ENDIAN)
-        out.putInt(Protocol.MAGIC)
+        val out = ByteBuffer.allocate(22 + 12 + enc.size).order(ByteOrder.LITTLE_ENDIAN)
+        out.putInt(0x57415331)
         out.put(type.toByte())
-        out.put(0) // flags
-        out.putInt(session)
+        out.put(0)
+        out.putLong(session)
         out.putInt(seq)
         out.putShort(plain.size.toShort())
-        out.put(0) // reserved
-        out.put(0)
+        out.putShort(0)
         out.put(iv)
         out.put(enc)
         return out.array()
     }
 
     fun open(buf: ByteArray, len: Int): Opened? {
-        if (len < Protocol.HEADER + 12 + 16) return null
+        if (len < 22 + 12 + 16) return null
         val bb = ByteBuffer.wrap(buf, 0, len).order(ByteOrder.LITTLE_ENDIAN)
-        if (bb.int != Protocol.MAGIC) return null
+        if (bb.int != 0x57415331) return null
         val type = bb.get().toInt() and 0xFF
-        bb.get() // flags
-        val session = bb.int
+        bb.get()
+        val session = bb.long
         val seq = bb.int
         val plainLen = bb.short.toInt() and 0xFFFF
-        bb.get() // reserved
-        bb.get()
+        bb.short
         val iv = ByteArray(12)
         bb.get(iv)
-        val encLen = len - Protocol.HEADER - 12
+        val encLen = len - 22 - 12
         if (encLen < 16) return null
         val enc = ByteArray(encLen)
         bb.get(enc)
