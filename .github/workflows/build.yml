@@ -10,22 +10,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack complete source
+      - name: Restore compressed + full source
         run: |
           set -e
-          echo "Parts:"
-          ls -la scripts/src_*.b64
-          cat scripts/src_*.b64 | base64 -d > /tmp/src.zip
-          ls -la /tmp/src.zip
-          unzip -o /tmp/src.zip -d /tmp/src
-          cp -a /tmp/src/. .
-          echo "=== Source files ==="
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/java/com/wireless/audiostreamer/ui
+          mkdir -p app/src/main/java/com/wireless/audiostreamer/service
+          # Prefer complete ZIP if all parts present
+          if [ -f scripts/src_00.b64 ] && [ -f scripts/src_20.b64 ]; then
+            PARTS=$(ls scripts/src_*.b64 2>/dev/null | wc -l)
+            echo "Found $PARTS src parts"
+            if [ "$PARTS" -ge 21 ]; then
+              cat scripts/src_*.b64 | base64 -d > /tmp/src.zip
+              unzip -o /tmp/src.zip -d /tmp/src
+              cp -a /tmp/src/. .
+              echo "Unpacked full ZIP"
+            fi
+          fi
+          # Fallback: zlib-compressed individual files
+          restore() {
+            local b64="$1" out="$2"
+            if [ -f "$b64" ]; then
+              base64 -d "$b64" | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > "$out" || true
+            fi
+          }
+          restore scripts/z_activity_main.b64 app/src/main/res/layout/activity_main.xml
+          restore scripts/z_activity_settings.b64 app/src/main/res/layout/activity_settings.xml
+          restore scripts/z_MainActivity.b64 app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
+          restore scripts/z_StreamingService.b64 app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          echo "=== Source ==="
           find app/src -type f | sort
-          test -f app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
-          test -f app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
-          test -f app/src/main/res/layout/activity_main.xml
-          test -f app/src/main/res/layout/activity_settings.xml
-          echo Critical files OK
+          ls -la app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt 2>/dev/null || echo MISSING MainActivity
+          ls -la app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt 2>/dev/null || echo MISSING StreamingService
 
       - uses: actions/setup-java@v4
         with:
