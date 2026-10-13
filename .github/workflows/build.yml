@@ -10,6 +10,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Restore MainActivity + StreamingService from compressed halves
+        run: |
+          set -e
+          mkdir -p app/src/main/java/com/wireless/audiostreamer/{ui,service}
+          mkdir -p app/src/main/res/layout
+          restore_half() {
+            local a="$1" b="$2" out="$3"
+            if [ -f "$a" ] && [ -f "$b" ]; then
+              cat "$a" "$b" | base64 -d | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > "$out"
+              echo "OK $out ($(wc -c < "$out") bytes)"
+            else
+              echo "MISSING $a or $b"
+              exit 1
+            fi
+          }
+          restore_half scripts/z_MainActivity_a.b64 scripts/z_MainActivity_b.b64 app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
+          restore_half scripts/z_StreamingService_a.b64 scripts/z_StreamingService_b.b64 app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          if [ -f scripts/z_activity_main.b64 ]; then
+            base64 -d scripts/z_activity_main.b64 | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > app/src/main/res/layout/activity_main.xml || true
+          fi
+          if [ -f scripts/z_activity_settings.b64 ]; then
+            base64 -d scripts/z_activity_settings.b64 | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > app/src/main/res/layout/activity_settings.xml || true
+          fi
+          find app/src -type f | sort
+          test -f app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
+          test -f app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
+          echo Critical OK
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
