@@ -10,48 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore source from compressed halves
-        run: |
-          set -e
-          mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/java/com/wireless/audiostreamer/{ui,service,audio,network,util}
-
-          restore_half() {
-            local a="$1" b="$2" out="$3"
-            if [ -f "$a" ] && [ -f "$b" ]; then
-              cat "$a" "$b" | base64 -d | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > "$out"
-              echo "OK $out ($(wc -c < "$out") bytes)"
-            else
-              echo "MISSING halves for $out"
-              return 1
-            fi
-          }
-
-          restore_single() {
-            local b64="$1" out="$2"
-            if [ -f "$b64" ]; then
-              if base64 -d "$b64" | python3 -c "import sys,zlib; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" > "$out" 2>/dev/null; then
-                echo "OK $out ($(wc -c < "$out") bytes)"
-              else
-                echo "FAIL decompress $b64"
-                rm -f "$out"
-              fi
-            fi
-          }
-
-          restore_half scripts/z_MainActivity_a.b64 scripts/z_MainActivity_b.b64 app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
-          restore_half scripts/z_StreamingService_a.b64 scripts/z_StreamingService_b.b64 app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
-          restore_single scripts/z_activity_main.b64 app/src/main/res/layout/activity_main.xml
-          restore_single scripts/z_activity_settings.b64 app/src/main/res/layout/activity_settings.xml
-
-          echo "=== Source ==="
-          find app/src -type f | sort
-          test -f app/src/main/java/com/wireless/audiostreamer/ui/MainActivity.kt
-          test -f app/src/main/java/com/wireless/audiostreamer/service/StreamingService.kt
-          test -f app/src/main/res/layout/activity_main.xml
-          test -f app/src/main/res/layout/activity_settings.xml
-          echo Critical OK
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
