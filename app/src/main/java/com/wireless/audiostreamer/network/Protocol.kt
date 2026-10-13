@@ -6,18 +6,18 @@ import java.nio.ByteOrder
 object Protocol {
     const val PORT_DISCOVERY = 48765
     const val PORT_AUDIO = 48766
-    const val MAGIC = 0x57415331 // "WAS1"
+    const val MAGIC = 0x57415331
     const val T_DISCOVER = 1
     const val T_ANNOUNCE = 2
     const val T_AUDIO = 10
-    const val HEADER = 18
+    const val HEADER_SIZE = 16
 
     data class AudioFrame(val pcm: ShortArray, val channels: Int)
 
     fun buildAudioPlain(pcm: ShortArray, channels: Int): ByteArray {
         val bb = ByteBuffer.allocate(2 + pcm.size * 2).order(ByteOrder.LITTLE_ENDIAN)
         bb.put(channels.toByte())
-        bb.put(0) // reserved
+        bb.put(0)
         for (s in pcm) bb.putShort(s)
         return bb.array()
     }
